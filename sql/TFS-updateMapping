@@ -1,0 +1,13 @@
+--Keep DefinitionId by finding definition by name:
+select * from tbl_BuildDefinition
+where DefinitionName = ‘definition name here with \’
+--Keep WorkspaceId by finding workspace by DefinitionId:
+select * from tbl_BuildDefinitionWorkspace
+where DefinitionId = definitionId here
+--View the mappings with:
+select * from tbl_BuildDefinitionMapping
+where WorkspaceId = workspaceIdHere
+--Update columns (server/local):
+update tbl_BuildDefinitionMapping
+set columnNameHere = replace(columnNameHere, '\origPathPartHere\', '\newPathPartHere\')
+where WorkspaceId = workspaceIdHere
