@@ -23,7 +23,6 @@ downloadJenkinsPluginWithDependencies() {
    if [[ "$dependencyString" == *";"* ]] && [[ $include_optional_dependencies != "true" ]]; then
       echo "skipping optional dependency $dependencyString"
    else
-
       if [[ "$dependencyString" == *":"* ]]; then
          dependencyName=$(echo $dependencyString | awk -F ':' '{ print $1 }')
          dependencyVersion=$(echo $dependencyString | awk -F '[:;]' '{ print $2}')
@@ -35,7 +34,7 @@ downloadJenkinsPluginWithDependencies() {
       fi
       echo "${dependencyName}:${dependencyVersion}" >> ${plugin_dir}/downloadedDependencies.txt
 
-      pluginDependencies=$( unzip -p ${plugin_dir}/${dependencyName}.hpi META-INF/MANIFEST.MF | tr -d '\r' | sed -e ':a;N;$!ba;s/\n //g' | grep -e "^Plugin-Dependencies: " | awk '{ print $2 }' | tr ',' '\n' | tr '\n' ' ')
+      pluginDependencies=$(unzip -p ${plugin_dir}/${dependencyName}.hpi META-INF/MANIFEST.MF | tr -d '\r' | sed -e ':a;N;$!ba;s/\n //g' | grep -e "^Plugin-Dependencies: " | awk '{ print $2 }' | tr ',' '\n' | tr '\n' ' ')
    
       for jenkinsPlugin in $pluginDependencies; do
          downloadJenkinsPluginWithDependencies $jenkinsPlugin 
