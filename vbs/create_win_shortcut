@@ -1,0 +1,5 @@
+set WshShell = CreateObject("WScript.Shell")
+set oMyShortCut= WshShell.CreateShortcut("C:\Users\shlomize\Desktop\mklink\vb.lnk")
+oMyShortCut.TargetPath = "C:\Users\shlomize\Desktop\mklink\1.bat"
+oMyShortCut.Arguments = "shlomi"
+oMyShortCut.Save
