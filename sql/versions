@@ -1,0 +1,2 @@
+SELECT @@Version
+SELECT SERVERPROPERTY('Edition');
