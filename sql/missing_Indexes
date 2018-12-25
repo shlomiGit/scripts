@@ -1,0 +1,189 @@
+DECLARE @DB_Name varchar(128)
+DECLARE @CMD NVARCHAR(MAX)
+
+CREATE TABLE #MissingIndexes (
+	[Srv] [nvarchar](128) NULL,
+	[DatabaseName] [nvarchar](128) NULL,
+	[schema_id] [int] NOT NULL,
+	[Schema_name] [sysname] NOT NULL,
+	[object_id] [int] NOT NULL,
+	[name] [sysname] NOT NULL,
+	[type] [char](2) NOT NULL,
+	[is_partitioned] [int] NULL,
+	[partition_num] [int] NULL,
+	[row_num] [bigint] NULL,
+	[TableSize] [numeric](19, 3) NULL,
+	[equality_columns] [nvarchar](4000) NULL,
+	[inequality_columns] [nvarchar](4000) NULL,
+	[included_columns] [nvarchar](4000) NULL,
+	[unique_compiles] [bigint] NOT NULL,
+	[user_seeks] [bigint] NOT NULL,
+	[user_scans] [bigint] NOT NULL,
+	[avg_total_user_cost] [float] NULL,
+	[avg_user_impact] [float] NULL,
+	[system_seeks] [bigint] NOT NULL,
+	[system_scans] [bigint] NOT NULL,
+	[avg_total_system_cost] [float] NULL,
+	[avg_system_impact] [float] NULL,
+	[Score] [numeric](38, 6) NULL,
+	[DB_up_time] [datetime] NULL,
+	[Current DAte] [datetime] NOT NULL
+)
+
+ 
+CREATE TABLE #AllDbs   
+(
+      ID int Identity(1,1) not null,
+      DBName varchar(128) not null  
+)
+ 
+IF (@@microsoftversion / 0x1000000) > 10
+		EXEC('insert #AllDbs (DBName)
+				SELECT name
+					FROM master.sys.databases d
+					left join sys.dm_hadr_availability_replica_states r on d.replica_id = r.replica_id
+						where role_desc = ''PRIMARY'' or d.replica_id is null
+						and cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+						and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+						and database_id > 4
+						and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+						order by [name]')
+ELSE 
+	EXEC ('insert #AllDbs (DBName)
+			select [name]
+			from master.dbo.sysdatabases with(nolock)
+			where cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+			and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+			and dbid > 4
+			and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+			order by [name]')
+      
+
+DECLARE dbs CURSOR FOR
+
+select DBName
+from #AllDbs
+
+OPEN dbs
+FETCH NEXT FROM dbs INTO @DB_Name
+WHILE @@FETCH_STATUS = 0
+BEGIN
+      SELECT  @CMD = N'USE [' + @DB_Name + '];
+	  SELECT CAST(ServerProperty(''servername'')AS VARCHAR(30)) AS ServerName,DB_NAME() AS DatabaseName,
+            sc.[schema_id],sc.[name] AS [Schema_name],obj.[object_id],obj.[name],obj.[type],
+(SELECT CASE WHEN ind.[groupid] IS NULL THEN 1 ELSE 0 END FROM sys.sysindexes AS ind
+WHERE ind.[id] = obj.[object_id] AND ind.[indid] = p.[index_id]) AS [is_partitioned],
+MAX(p.[partition_number]) AS [partition_num],SUM(p.[Rows]) AS [row_num] ,CONVERT(numeric(19,3) ,CONVERT(float,SUM(a.[total_pages]))/128) AS [TableSize],mid.[equality_columns],
+mid.[inequality_columns],mid.[included_columns],migs.[unique_compiles],migs.[user_seeks],migs.[user_scans],migs.[avg_total_user_cost], 
+migs.[avg_user_impact],migs.[system_seeks],migs.[system_scans],migs.[avg_total_system_cost],migs.[avg_system_impact],
+(CONVERT(numeric(19,6),migs.[user_seeks])+CONVERT(numeric(19,6),migs.[unique_compiles])) * CONVERT(numeric(19,6),migs.[avg_total_user_cost]) * CONVERT(numeric(19,6), migs.[avg_user_impact]/100.0) AS [Score],
+(SELECT [create_date] FROM sys.databases WHERE [name] = ''tempdb'') AS [DB_up_time] ,GETDATE() AS [Current DAte]
+FROM sys.objects AS obj
+JOIN sys.partitions AS p ON obj.[object_id] = p.[object_id] AND p.[index_id] BETWEEN 0 AND 1
+JOIN sys.allocation_units AS a ON p.[partition_id] = a.[container_id] 
+JOIN sys.schemas AS sc ON obj.[schema_id] = sc.[schema_id]
+JOIN sys.dm_db_missing_index_details AS mid ON obj.[object_id] = mid.[object_id] AND mid.[database_id] = DB_ID()
+JOIN sys.dm_db_missing_index_groups AS mig ON mid.[index_handle] = mig.[index_handle]
+JOIN sys.dm_db_missing_index_group_stats AS migs ON mig.[index_group_handle] = migs.[group_handle]
+GROUP BY sc.[schema_id],sc.[name],obj.[object_id],obj.[name],obj.[type],p.[index_id],mid.[equality_columns],mid.[inequality_columns], 
+                mid.[included_columns],migs.[unique_compiles],migs.[user_seeks],migs.[user_scans],migs.[avg_total_user_cost],
+                migs.[avg_user_impact],migs.[system_seeks],migs.[system_scans],migs.[avg_total_system_cost],migs.[avg_system_impact]
+--ORDER BY obj.[object_id], Score DESC, migs.[user_seeks] DESC, migs.[avg_total_user_cost] DESC
+'
+
+--print @CMD
+
+INSERT INTO #MissingIndexes
+EXEC sys.sp_executesql @CMD 
+
+      
+      FETCH NEXT FROM dbs INTO @DB_Name
+END
+
+-- Close and deallocate the cursor.
+CLOSE dbs
+DEALLOCATE dbs
+
+SELECT *
+FROM #MissingIndexes 
+
+DROP TABLE #MissingIndexes
+DROP TABLE #AllDbs
+SP Statistics
+USE [master]
+GO
+DECLARE @DbName NVARCHAR(100), @SQLStr NVARCHAR(4000);
+CREATE TABLE #SQL_SP_exec_Count(
+	[ServerName] [varchar](30) NULL,
+	[Database Name] [nvarchar](128) NULL,
+	[SP Name] [sysname]  NULL,
+	[execution_count] [bigint]  NULL,
+	[Calls/Minute] [bigint]  NULL,
+	[AvgWorkerTime] [bigint] NULL,
+	[TotalWorkerTime] [bigint]  NULL,
+	[total_elapsed_time] [bigint]  NULL,
+	[avg_elapsed_time] [bigint] NULL,
+	[cached_time] [datetime] NULL
+)
+CREATE TABLE #AllDbs   
+(
+      ID int Identity(1,1) not null,
+      DBName varchar(128) not null  
+)
+
+IF (@@microsoftversion / 0x1000000) > 10
+		EXEC('insert #AllDbs (DBName)
+				SELECT name
+					FROM master.sys.databases d
+					left join sys.dm_hadr_availability_replica_states r on d.replica_id = r.replica_id
+						where role_desc = ''PRIMARY'' or d.replica_id is null
+						and cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+						and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+						and database_id > 4
+						and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+						order by [name]')
+ELSE 
+	EXEC ('insert #AllDbs (DBName)
+			select [name]
+			from master.dbo.sysdatabases with(nolock)
+			where cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+			and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+			and dbid > 4
+			and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+			order by [name]')
+DECLARE DbList CURSOR READ_ONLY
+FOR SELECT DBName
+    FROM #AllDbs
+OPEN DbList;
+FETCH NEXT FROM DbList INTO @DbName;
+WHILE @@fetch_status = 0
+    BEGIN
+	   SET @SQLStr = 'USE ['+@DbName+']; 
+SELECT TOP(100) 
+    CAST(ServerProperty(''servername'')AS VARCHAR(30)) as ServerName
+    ,DB_NAME() AS [Database Name]
+    ,p.name AS [SP Name]
+    ,qs.execution_count
+	,ISNULL(qs.execution_count/DATEDIFF(Minute, qs.cached_time, GETDATE()), 0) AS [Calls/Minute]
+	,qs.total_worker_time/qs.execution_count AS [AvgWorkerTime], qs.total_worker_time AS [TotalWorkerTime]  
+	,qs.total_elapsed_time, qs.total_elapsed_time/qs.execution_count AS [avg_elapsed_time]
+	,qs.cached_time
+FROM sys.procedures AS p WITH (NOLOCK)
+INNER JOIN sys.dm_exec_procedure_stats AS qs WITH (NOLOCK)
+ON p.[object_id] = qs.[object_id]
+WHERE qs.database_id = DB_ID()
+ORDER BY qs.execution_count DESC OPTION (RECOMPILE);
+';
+	   INSERT INTO #SQL_SP_exec_Count
+	   EXEC sp_executesql
+		   @SQLStr;
+	   FETCH NEXT FROM DbList INTO @DbName;
+    END;
+CLOSE DbList;
+DEALLOCATE DbList;
+
+SELECT * FROM #SQL_SP_exec_Count
+
+
+DROP TABLE #SQL_SP_exec_Count
+DROP TABLE #AllDbs
