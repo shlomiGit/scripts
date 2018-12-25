@@ -1,0 +1,25 @@
+DECLARE @HoursBack as int = 3;
+
+SELECT top 10
+      [IdentityName]
+	  ,sum(cm.ExecutionTime)
+  FROM [Tfs_DefaultCollection].[dbo].[tbl_Command] as cm
+  Where StartTime >= DATEADD(HOUR,-@HoursBack,GETDATE())
+	AND IdentityName != 'CELLEBRITE\TFS15Service'
+  Group by cm.IdentityName
+  order by sum(cm.Executiontime) desc
+
+/****** Script for SelectTopNRows command from SSMS  ******/
+SELECT *  FROM [Tfs_DefaultCollection].[dbo].[tbl_Command]
+  Where IdentityName in 
+  (
+  /****** Script for SelectTopNRows command from SSMS  ******/
+SELECT top 1
+      [IdentityName]
+  FROM [Tfs_DefaultCollection].[dbo].[tbl_Command] as cm
+  Where StartTime >= DATEADD(HOUR,-@HoursBack,GETDATE()) and
+	IdentityName != 'CELLEBRITE\TFS15Service'
+  Group by cm.IdentityName
+  order by sum(cm.ExecutionTime) desc
+  )
+  order by StartTime desc
