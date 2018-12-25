@@ -1,0 +1,79 @@
+USE [master];
+GO
+DECLARE @DbName NVARCHAR(100), @SQLStr NVARCHAR(4000);
+CREATE TABLE #SQL_Query_exec_Count(
+	[ServerName] [varchar](30) NULL,
+	[Database Name] [nvarchar](128) NULL,
+	[execution_count] [bigint] NOT NULL,
+	[total_rows] [bigint]  NULL,
+	[last_rows] [bigint]  NULL,
+	[min_rows] [bigint]  NULL,
+	[max_rows] [bigint]  NULL,
+	[last_elapsed_time] [bigint] NOT NULL,
+	[min_elapsed_time] [bigint] NOT NULL,
+	[max_elapsed_time] [bigint] NOT NULL,
+	[total_worker_time] [bigint] NOT NULL,
+	[total_logical_reads] [bigint] NOT NULL,
+	[query_text] [nvarchar](max) NULL
+)
+CREATE TABLE #AllDbs   
+(
+      ID int Identity(1,1) not null,
+      DBName varchar(128) not null  
+)
+
+IF (@@microsoftversion / 0x1000000) > 10
+		EXEC('insert #AllDbs (DBName)
+				SELECT name
+					FROM master.sys.databases d
+					left join sys.dm_hadr_availability_replica_states r on d.replica_id = r.replica_id
+						where role_desc = ''PRIMARY'' or d.replica_id is null
+						and cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+						and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+						and database_id > 4
+						and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+						order by [name]')
+ELSE 
+	EXEC ('insert #AllDbs (DBName)
+			select [name]
+			from master.dbo.sysdatabases with(nolock)
+			where cast(databasepropertyex([name], ''UserAccess'') as varchar(20)) = ''MULTI_USER''
+			and cast(databasepropertyex([name], ''Status'') as varchar(20)) = ''ONLINE''
+			and dbid > 4
+			and name NOT IN (''AdventureWorks'', ''ReportServer'', ''ReportServerTempDB'')
+			order by [name]')
+DECLARE DbList CURSOR READ_ONLY
+FOR SELECT DBName
+    FROM #AllDbs
+    
+OPEN DbList;
+FETCH NEXT FROM DbList INTO @DbName;
+WHILE @@fetch_status = 0
+    BEGIN
+	   SET @SQLStr = 'USE ['+@DbName+']; 
+SELECT TOP (50) 
+    CAST(ServerProperty(''servername'')AS VARCHAR(30)) as ServerName,DB_NAME() AS [Database Name], 
+    qs.execution_count, qs.total_rows, qs.last_rows, qs.min_rows, qs.max_rows,
+qs.last_elapsed_time, qs.min_elapsed_time, qs.max_elapsed_time,
+total_worker_time, total_logical_reads, 
+SUBSTRING(qt.TEXT,qs.statement_start_offset/2 +1,
+(CASE WHEN qs.statement_end_offset = -1
+   THEN LEN(CONVERT(NVARCHAR(MAX), qt.TEXT)) * 2
+   ELSE qs.statement_end_offset END - qs.statement_start_offset)/2) AS query_text 
+FROM sys.dm_exec_query_stats AS qs WITH (NOLOCK)
+CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS qt
+ORDER BY qs.execution_count DESC OPTION (RECOMPILE);
+';
+       INSERT INTO #SQL_Query_exec_Count
+	   EXEC sp_executesql
+		   @SQLStr;
+	   FETCH NEXT FROM DbList INTO @DbName;
+    END;
+CLOSE DbList;
+DEALLOCATE DbList;
+
+
+SELECT * FROM #SQL_Query_exec_Count
+
+DROP TABLE #SQL_Query_exec_Count
+DROP TABLE #AllDbs
