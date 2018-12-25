@@ -1,0 +1,27 @@
+SELECT OBJECT_NAME(A.[OBJECT_ID]) AS [OBJECT NAME],        
+		I.[NAME] AS [INDEX NAME],       
+		A.LEAF_INSERT_COUNT,        
+		A.LEAF_UPDATE_COUNT,        
+		A.LEAF_DELETE_COUNT 
+FROM   SYS.DM_DB_INDEX_OPERATIONAL_STATS (16,1339464146,NULL,NULL ) A    --dbid, table id    
+INNER JOIN SYS.INDEXES AS I          
+ON I.[OBJECT_ID] = A.[OBJECT_ID]            
+ AND I.INDEX_ID = A.INDEX_ID 
+ WHERE  OBJECTPROPERTY(A.[OBJECT_ID],'IsUserTable') = 1
+
+SELECT   OBJECT_NAME(S.[OBJECT_ID]) AS [OBJECT NAME],          
+			I.[NAME] AS [INDEX NAME],          
+			USER_SEEKS,          
+			USER_SCANS,          
+			USER_LOOKUPS,          
+			USER_UPDATES 
+FROM     SYS.DM_DB_INDEX_USAGE_STATS AS S          
+INNER JOIN SYS.INDEXES AS I            
+ON I.[OBJECT_ID] = S.[OBJECT_ID]             
+  AND I.INDEX_ID = S.INDEX_ID 
+WHERE    OBJECTPROPERTY(S.[OBJECT_ID],'IsUserTable') = 1 
+AND S.[OBJECT_ID] = 1339464146
+order by 1,3 desc,4 desc, 5 desc,6 desc
+
+/* The query below shows ID's of tables across the DB*/
+SELECT * FROM Sys.tables
