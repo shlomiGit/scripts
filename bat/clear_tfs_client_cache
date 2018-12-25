@@ -1,0 +1,9 @@
+set MyDir=%AppData%\..\Local\Microsoft\Team Foundation\
+pushd "%MyDir%"
+for /D %%F in (*) do (
+	if exist "%%F\Cache" (
+		echo "Clearing %%F\Cache" 
+		RD /Q /S "%MyDir%\%%F\Cache"
+	)
+)
+popd
