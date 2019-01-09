@@ -1,4 +1,5 @@
 params(
+[Parameter(Mandatory=$true)]
 [string] $url
 [string] $userName
 [string] $pwd
