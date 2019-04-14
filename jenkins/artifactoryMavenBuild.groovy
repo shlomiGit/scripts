@@ -1,7 +1,7 @@
 def call (String dependencyReleaseRepo, String dependencySnapshotRepo, String deployReleaseRepo, String deploySnapshotRepo, String mavenGoals) {
 	script {
 	// artifactory server
-		def server = Artifactory.server "-498565824@1385035965939"
+		def server = Artifactory.server "??????????????????"
 	// maven build
 		def rtMaven = Artifactory.newMavenBuild()
 		rtMaven.resolver server: server, releaseRepo: dependencyReleaseRepo, snapshotRepo: dependencySnapshotRepo
