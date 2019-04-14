@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: pull-trigger-template
+parameters:
+  - name: APP_NAME
+    description: The name of the project or application
+    required: true
+  - name: replicas
+    description: int number of replicas to deploy out of the template
+    value: '3'
+    required: true
+  - name: APP_PORT
+    description: The port the app listens on
+    required: true
+  - name: HOSTNAME
+    description: Hostname for the url
+  - name: APP_PATH
+    description: Path to app's frontpage
+    value: /api/document/1
+objects:
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      name: ${APP_NAME}-dc-pull-trigger
+    spec:
+      replicas: "${replicas}"
+      test: false
+      selector:
+        deployment-config.name: ${APP_NAME}-dc-pull-trigger
+      template:
+        metadata:
+          labels:
+            deployment-config.name: ${APP_NAME}-dc-pull-trigger
+        spec:
+          containers:
+            - image: dvo-container-promotion-dev/${APP_NAME}-output-is:latest
+              name: default-container
+      triggers:
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - default-container
+            from:
+              kind: ImageStreamTag
+              name: ${APP_NAME}-output-is:latest
+              namespace: dvo-container-promotion-dev
+          type: ImageChange
+        - type: ConfigChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${APP_NAME}-svc-pull-trigger
+    spec:
+      ports:
+      - port: 8080
+        protocol: TCP
+        targetPort: 10000
+      selector:
+        deployment-config.name: ${APP_NAME}-dc-pull-trigger
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Route
+    metadata:
+      name: ${APP_NAME}-route-pull-trigger
+    spec:
+      host: ${APP_NAME}-test.?????????
+      path: ${APP_PATH}
+      tls:
+        termination: edge
+      to:
+        kind: Service
+        name: ${APP_NAME}-svc-pull-trigger
+        weight: 100
+      wildcardPolicy: None
+labels:
+  template: "fromPullTriggerTemplate"
