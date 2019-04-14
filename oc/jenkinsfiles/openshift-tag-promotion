@@ -1,0 +1,30 @@
+@Library('devops_pipeline_lib@master') _
+def lastBuildId
+
+pipeline{
+    agent {label 'someLabel'}
+    environment {
+        ocPath = 'E:\\devops-tools\\openshift\\oc.exe'
+        ocUrl = 'the url'
+        workingOcProject = 'the name'
+    }
+    stages{
+        stage('oc login'){
+            steps{
+                bat "${ocPath} login ${ocUrl} --insecure-skip-tls-verify -u [user] -p ${PWD}"
+                bat "${ocPath} project ${workingOcProject}"
+            }
+        }
+        stage('get last build id'){
+            steps{
+                script{lastBuildId = getLastSuccessfulBuildIdByName("openshift-s2i-build")}
+                echo "lastBuildId is: ${lastBuildId}"
+            }
+        }
+        stage('oc tag'){
+            steps{
+                bat "${ocPath} tag ${appName}-output-is:${lastBuildId} ${appName}-output-is:latest"
+            }
+        }
+    }
+}
