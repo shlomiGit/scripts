@@ -5,10 +5,10 @@ pipeline {
 		display = "${display}"
 		// vars for stage 'build'
 		mavenGoals = 'clean install -U -X'
-		dependencyReleaseRepo = 'cal-maven-all'
-		dependencySnapshotRepo = 'cal-maven-all'
-		deployReleaseRepo = 'cal-internal-release'
-		deploySnapshotRepo = 'cal-internal-snapshots'
+		dependencyReleaseRepo = '???????'
+		dependencySnapshotRepo = '???????'
+		deployReleaseRepo = '???????'
+		deploySnapshotRepo = '???????'
 		// vars for stage 'archive'
 		pattern = 'target/*.*ar'
 	}
