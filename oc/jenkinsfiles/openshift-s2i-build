@@ -1,0 +1,57 @@
+pipeline{
+    agent {label 'someLabel'}
+    environment {
+        ocPath = 'E:\\devops-tools\\openshift\\oc.exe'
+        ocUrl = 'the url'
+        workingOcProject = 'the name'
+    }
+    stages{
+        stage('oc login'){
+            steps{
+                bat "${ocPath} login ${ocUrl} --insecure-skip-tls-verify -u [user] -p ${PWD}"
+            }
+        }
+        stage('oc cleanup'){
+            when{
+                environment name: 'newEnv', value: 'true'
+            }
+            steps{
+                bat "${ocPath} delete template --all&${ocPath} delete route --all&${ocPath} delete svc --all&${ocPath} delete dc --all&${ocPath} delete bc --all&${ocPath} delete is --all"
+            }
+        }
+        stage('oc create template'){
+            when{
+                environment name: 'newEnv', value: 'true'
+            }
+            steps{
+                bat "${ocPath} project ${workingOcProject}"
+                bat "${ocPath} create -f E:\\devops-tools\\openshift\\s2iTemplate.yaml"
+                bat "${ocPath} process s2i-template -p APP_NAME=my-cool-app -p version=${BUILD_ID} -p APP_PORT=10000 | ${ocPath} create -f -"
+            }
+        }
+        stage('oc patch dc'){
+            steps{
+                bat "${ocPath} patch dc/${appName}-dc-s2i -p {\\\"spec\\\":{\\\"triggers\\\":[{\\\"imageChangeParams\\\":{\\\"automatic\\\":true,\\\"containerNames\\\":[\\\"default-container\\\"],\\\"from\\\":{\\\"name\\\":\\\"${appName}-output-is:${BUILD_ID}\\\"}},\\\"type\\\":\\\"ImageChange\\\"}]}}"
+            }
+        }
+        stage('oc patch bc'){
+            steps{
+                echo "build id is : %BUILD_ID%"
+                bat "${ocPath} patch bc/${appName}-bc -p {\\\"spec\\\":{\\\"output\\\":{\\\"to\\\":{\\\"name\\\":\\\"${appName}-output-is:${BUILD_ID}\\\"}}}}"
+            }
+        }
+        stage('oc build'){
+            steps{
+                bat "${ocPath} start-build bc/${appName}-bc"                
+            }
+        }
+        stage('oc deploy dc'){
+            when{
+                environment name: 'newEnv', value: 'true'
+            }
+            steps{
+                bat "${ocPath} rollout latest dc/${appName}-dc-s2i"
+            }
+        }
+    }
+}
