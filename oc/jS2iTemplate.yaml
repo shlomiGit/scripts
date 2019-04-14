@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: s2i-template
+parameters:
+  - name: APP_NAME
+    description: The name of the project or application
+    value: my-cool-app
+    required: true
+  - name: BUILDER_IMAGE
+    description: The base image to build from
+    value: docker-registry.default.svc:5000/openshift/dotnet-22-rhel7:2.2
+  - name: version
+    description: the version of the code
+    value: 0.0.12
+    required: true
+  - name: replicas
+    description: int number of replicas to deploy out of the template
+    value: '3'
+    required: true
+  - name: SOURCE_REPOSITORY_URL
+    description: The URL of the repository with the application source code
+    value: ???????????????????????????????
+    required: true
+  - name: APP_PORT
+    description: The port the app listens on
+    required: true
+  - name: HOSTNAME
+    description: Hostname for the url
+  - name: APP_PATH
+    description: Path to app's frontpage
+    value: ????????????????
+objects:
+  - apiVersion: v1
+    kind: ImageStream    
+    metadata:
+      name: ${APP_NAME}-source-is
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+        - annotations: null
+          from:
+            kind: DockerImage
+            name: ${BUILDER_IMAGE}
+          importPolicy:
+            insecure: true
+            scheduled: true
+          name: 'latest'
+          referencePolicy:
+            type: Source
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      name: ${APP_NAME}-output-is
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+        - annotations: null
+          from:
+            kind: DockerImage
+            name: ${APP_NAME}-output-is
+          generation: 3
+          importPolicy: {}
+          name: latest
+          referencePolicy:
+            type: Source
+        - annotations: null
+          from:
+            kind: DockerImage
+            name: ${APP_NAME}-output-is
+          generation: 5
+          importPolicy: {}
+          name: ${version}
+          referencePolicy:
+            type: Source
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      name: ${APP_NAME}-dc-s2i
+    spec:
+      replicas: "${replicas}"
+      test: false
+      selector:
+        deployment-config.name: ${APP_NAME}-dc-s2i
+      template:
+        metadata:
+          labels:
+            deployment-config.name: ${APP_NAME}-dc-s2i
+        spec:
+          containers:
+            - image: ${APP_NAME}-output-is:${version}
+              name: default-container
+      triggers:
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - default-container
+            from:
+              kind: ImageStreamTag
+              name: ${APP_NAME}-output-is:${version}
+          type: ImageChange
+        - type: ConfigChange
+  - apiVersion: v1
+    kind: BuildConfig
+    metadata:
+      name: ${APP_NAME}-bc
+    spec:
+      output:
+        to:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-output-is:${version}
+      runPolicy: Serial
+      source:
+        git:
+          uri: ${SOURCE_REPOSITORY_URL}
+        sourceSecret:
+          name: up
+        type: Git
+      strategy:
+        sourceStrategy:
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Stage
+            - name: DOTNET_RESTORE_SOURCES
+              value: ??????????????????????????
+          from:
+            kind: ImageStreamTag
+            name: ${APP_NAME}-source-is:latest
+        type: Source
+      triggers:
+        - imageChange:
+            lastTriggeredImageID: ${BUILDER_IMAGE}
+          type: ImageChange
+        - type: ConfigChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${APP_NAME}-svc-s2i
+    spec:
+      ports:
+      - port: 8080
+        protocol: TCP
+        targetPort: 10000
+      selector:
+        deployment-config.name: ${APP_NAME}-dc-s2i
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Route
+    metadata:
+      name: ${APP_NAME}-route-s2i
+    spec:
+      host: ${APP_NAME}-s2i.??????????
+      path: ${APP_PATH}
+      tls:
+        termination: edge
+      to:
+        kind: Service
+        name: ${APP_NAME}-svc-s2i
+        weight: 100
+      wildcardPolicy: None
+labels:
+  template: "fromS2iTemplate"
