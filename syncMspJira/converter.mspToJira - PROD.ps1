@@ -37,7 +37,7 @@ if($mspItem.description.GetType().Name -eq 'DBNull'){
                 value = $mspItem.PotentialType 
             }
             customfield_10321 = Convert-Date($mspItem.StartDate)
-            DueDate = Convert-Date($mspItem.FinishDate)
+            duedate = Convert-Date($mspItem.FinishDate)
             customfield_10319 = @{
                 value = $mspItem.Basket
             }
@@ -73,7 +73,7 @@ if($mspItem.description.GetType().Name -eq 'DBNull'){
                 value = $mspItem.PotentialType 
             }
             customfield_10321 = Convert-Date($mspItem.StartDate)
-            customfield_10322 = Convert-Date($mspItem.FinishDate)
+            duedate = Convert-Date($mspItem.FinishDate)
             customfield_10319 = @{
                 value = $mspItem.Basket
             }
