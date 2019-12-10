@@ -108,6 +108,9 @@ foreach ($key in $properties.fields.Keys) {
 if($mspItem.Basket.GetType().Name -eq 'DBNull'){
     $nullKeys += "customfield_10319"
 }
+if($mspItem.departmentOfProjectManager.GetType().Name -eq 'DBNull'){
+    $nullKeys += "customfield_10314"
+}
 foreach($nullKey in $nullKeys){
     $properties.fields.Remove($nullKey)
 }
