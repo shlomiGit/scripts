@@ -1,0 +1,168 @@
+My tips
+Get image to files
+oc image extract openshift/dotnet-22-rhel7-custom-visa-api-build:latest --path "c:\temp\image"
+Get images list
+oc get images
+oc new-app –L
+oc get templates -n openshift
+Manual deploy
+oc deploy <appName> [--latest]
+view dc
+oc describe dc <appName>
+Discover docker registry service ip
+oc get is
+Pv
+Creation of persistent volume requires cluster admin user permissions
+Process
+1.	p43 explains that pipeline activities are separated to oc projects and segment r&r's:
+2.	"Ideally we want to build our immutable application images once, then tag the images for promotion into other projects"
+3.	p45 explains that different service accounts are required between env's
+4.	p75 The build process is concerned with extracting the application’s source or binary artifacts from some source, compiling the code if required, and layering the runtime artifact onto a base image to run it.
+Exercise #1 - s2i
+1.	create empty source imageStream -> create new object 'is'
+•	oc create imagestream source-image-sample
+2.	push docker image to imageStream
+•	$ sudo docker push registry/dvo-container-promotion-test/source-image-sample:tag
+•	because missing docker, edited YAML, in 'spec':
+•	oc edit is/source-image-sample
+tags:
+    - annotations: null
+      from:
+        kind: DockerImage
+        name: 'docker-registry.default.svc:5000/openshift/dotnet-22-hel7:2.2'
+      generation: 2
+      importPolicy:
+        insecure: true
+        scheduled: true
+      name: '0.1'
+      referencePolicy:
+        type: Source
+3.	create empty output imageStream
+•	oc create imagestream output-image-sample
+4.	create buildConfig -> create new 'bc'
+•	oc new-build http://alm-prdapp02:8080/tfs/DefaultCollection/BusinessMicroServices/_git/Documents --source-secret=up --name=s2i-bc-sample --image-stream=source-image-sample:0.1 --strategy=source --to=output-image-sample --env ASPNETCORE_ENVIRONMENT=Stage
+•	oc set env bc/s2i-bc-sample DOTNET_RESTORE_SOURCES=http://artifactory.icc.corp:8080/artifactory/api/nuget/cal-nuget-all
+5.	create dc -> create new 'dc' and deploy
+•	oc create dc s2i-dc-sample --image=docker-registry.default.svc:5000/dvo-container-promotion-test/output-image-sample
+6.	expose dc -> create new 'svc'
+•	oc expose dc s2i-dc-sample --name=s2i-app-sample --target-port=10000 --port=8080 --protocol=TCP
+7.	create route -> create new 'route'
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --path=/api/document/1
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --path=/api/document/1 --hostname=short-host
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --path=/api/document/1 --hostname=short-hostname.ops-stg.icc.corp
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --port=10000 --path=/api/document/1
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --path=/api/document/1 --hostname=short-host
+•	* oc expose service s2i-app-sample --port=8080 --protocol=TCP --target-port=10000 --name=s2i-route-sample --hostname=short-hostname --path=/api/document/1  secured
+8.	start build -> deploys the app. Next cmd is redundant
+•	oc start-build bc/s2i-bc-sample
+9.	deploy output image -> creates an image with app name
+•	oc new-app output-image-sample --name=s2i-app-sample
+Exercise #2 - project promotion by tag
+Each project has a dc which deploys an 'is' with specific tag (i.e. promoteQA) into a deployment with next-stage-tag
+1.	create buildConfig
+•	oc new-build http://alm-prdapp02:8080/tfs/DefaultCollection/BusinessMicroServices/_git/Documents --source-secret=up --name=p-bc-sample --image-stream=source-image-sample:0.1 --strategy=source --to=output-image-sample:promoteDEV --env ASPNETCORE_ENVIRONMENT=Stage --allow-missing-imagestream-tags
+•	oc set env bc/p-bc-sample DOTNET_RESTORE_SOURCES=http://artifactory.icc.corp:8080/artifactory/api/nuget/cal-nuget-all
+2.	switch to next stage project:
+•	oc project dvo-container-promotion-dev
+3.	create dc
+•	oc create dc dev-promote-sample --image=docker-registry.default.svc:5000/dvo-container-promotion-test/output-image-sample:promoteDEV
+4.	update the imagePullPolicy
+•	oc patch dc/dev-promote-sample -p '{"spec":{"template":{"spec":{"containers":[{"name":"defaultcontainer","imagePullPolicy":"Always"}]}}}}'
+•	triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+          - default-container
+        from:
+          kind: ImageStreamTag
+          name: 'output-image-sample:promoteDEV'
+          namespace: dvo-container-promotion-test
+        lastTriggeredImage: >-
+          docker-registry.default.svc:5000/dvo-container-promotion-test/output-image-sample@sha256:1e1ec9798ec3dd8c2b57330d028198cde185d4d42801a94d282cae456bc945f0
+      type: ImageChange
+    - type: ConfigChange
+5.	expose dc
+•	oc expose dc dev-promote-sample --name=s2i-app-sample --target-port=10000 --port=8080 --protocol=TCP
+6.	create route
+•	oc create route edge s2i-route-sample --service=s2i-app-sample --path=/api/document/1 --hostname=dev-env.ops-stg.icc.corp
+7.	deploy output image
+•	oc new-app output-image-sample --name=s2i-app-sample
+8.	at first attempt received error "image pull back-off" which disappeared after deployed the 'p' image in the test project
+9.	cleanup
+•	oc delete route s2i-route-sample
+•	oc delete svc s2i-app-sample
+•	oc delete dc dev-promote-sample
+Exercise #3 – tagging
+Using a tag to specify the version of what is contained in the image is a common use case: https://docs.openshift.com/container-platform/3.6/dev_guide/managing_images.html#tagging-images
+10.	tag -> add a tag to an 'is' but w/o a sha256 id (=a deployment image id).
+•	oc tag output-image-sample output-image-sample:0.1
+11.	remove tag
+•	oc tag -d output-image-sample:0.1
+Exercise #4 – Auth for Jenkins
+1.	add service account to project
+•	oc policy add-role-to-user edit system:serviceaccount:dvo-container-promotion-test:app_jenkins
+Exercise #5 – Templates and parameters
+•	https://docs.openshift.com/container-platform/3.10/dev_guide/templates.html
+•	Labels: ...#writing-labels: will be added to each object created when the template is instantiated
+•	The exercise repeats Ex#1 but with templates
+1.	Export Ex#1 objects to template
+•	oc get --export BuildConfig,DeploymentConfig,ImageStream,Route,Service -o=yaml > sampleTemplate.yaml
+2.	create template
+•	oc create -f M:\oc\templates\sampleTemplate-v5-versioning.yaml
+3.	create objects from template
+•	oc process sample-template -p [envVarName1]=[envVarValue1] -p [envVarName2]=[envVarValue2] | oc create -f -
+Exercise #6 – Promotion
+•	https://docs.openshift.com/container-platform/3.10/dev_guide/application_lifecycle/promoting_applications.html
+•	Bug: build was pending endlessly because the secret was missing
+Setup the dev env – s2i
+1.	Use the dev proj
+•	oc project dvo-container-promotion-dev
+2.	create template
+•	oc create -f M:\oc\templates\s2iTemplate.yaml
+3.	create objects from template
+•	oc process s2i-template -p APP_NAME=my-cool-app -p version=0.0.0.12 -p APP_PORT=10000 | oc create -f -
+Setup the test env – pull trigger
+1.	use the test project
+•	oc project dvo-container-promotion-test
+2.	create template
+•	oc create -f M:\oc\templates\pullTriggerTemplate.yaml
+3.	create objects from template
+•	oc process pull-trigger-template -p APP_NAME=my-cool-app -p APP_PORT=10000 | oc create -f -
+4.	grant permissions
+•	oc policy add-role-to-user system:image-puller system:serviceaccount:dvo-container-promotion-test:default -n dvo-container-promotion-dev
+Cleanup
+C:\Temp\openshift\cleanup.bat
+oc delete template --all
+oc delete route --all
+oc delete svc --all
+oc delete bc --all
+oc delete dc --all
+oc delete is --all
+Running development…
+1.	invoke build
+•	oc start-build bc/my-cool-app-bc
+Promote by tag
+1.	tag the dev version as latest
+•	oc tag my-cool-app-output-is:0.0.0.12 my-cool-app-output-is:latest
+2.	Bug: image-puller role was granted to the user but the cross project warning was still displayed
+Exercise #7 – pipeline
+•	https://docs.openshift.com/container-platform/3.10/dev_guide/dev_tutorials/openshift_pipeline.html
+Jenkins master
+oc new-app jenkins-ephemeral
+Jenkins Starter Build
+oc create -f M:\oc\templates\jBC.yaml
+Start build
+oc start-build j-example
+INCOMPLETE
+Resources
+1.	the pipeline example template
+https://raw.githubusercontent.com/openshift/origin/master/examples/jenkins/pipeline/samplepipeline.yaml
+2.	sample jenkinsfile
+https://raw.githubusercontent.com/devops-with-openshift/pipeline-configs/master/pipeline-groovy.groovy
+3.	cluster promotion:
+https://blog.openshift.com/cross-cluster-image-promotion-techniques/
+4.	ref the jenkinsfile: http://red.ht/2nFeKnM
+RedHat Qs
+1.	How to increment tags?
+2.	Creating a bc will always require git locally?
+3.	How to ref a jenkinsfile and not inline? jenkinsfile Path parameter?
