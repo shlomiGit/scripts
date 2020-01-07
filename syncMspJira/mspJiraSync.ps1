@@ -21,6 +21,24 @@ function Update-Status([string]$mspStatus, [string]$jiraKey){
         logThis("Updated status for Jira item: {0}" -f $jiraKey)
     }else{logThis("failed to update status for Jira item: {0}" -f $jiraKey)}
 }
+function Compare-Logs(){
+    $failLogContent = Get-Content -Path "$scriptsPath\failLog.txt"
+    foreach($line in $failLogContent){
+        $failLogNewContent += $line.Substring(21)
+    }    
+    $secondaryFailLogContent = Get-Content -Path "$scriptsPath\secondaryFailLog.txt"
+    foreach($line in $secondaryFailLogContent){
+        $secondaryFailLogNewContent += $line.Substring(21)
+    }
+    return $failLogNewContent -eq $secondaryFailLogNewContent
+}
+
+do{
+$repeat = $false
+#0 ##### clear previous logs ######
+#---------------------------------#
+if((Test-Path -Path "$scriptsPath\failLog.txt")){Remove-Item "$scriptsPath\failLog.txt"}
+if((Test-Path -Path "$scriptsPath\log.txt")){Remove-Item "$scriptsPath\log.txt"}
 
 #1 ##### pull details from MSP db ######
 #--------------------------------------#
@@ -74,7 +92,8 @@ foreach($item in $data){
             #-------------------------#
             elseif($comparisonResult.Contains('status')){
                 Update-Status $item.Status $content.issues.key
-            }elseif($comparisonResult.Contains('.') -and !($comparisonResult.StartsWith('~'))){
+            }
+            elseif($comparisonResult.Contains('.') -and !($comparisonResult.StartsWith('~'))){
                 [string] $fieldName = ((($comparisonResult.Split('+'))[0]).Split('.'))[0]
                 [string] $fieldValue = ($comparisonResult.Split('+'))[1]
                 [string] $attributeName = ((($comparisonResult.Split('+'))[0]).Split('.'))[1]
@@ -89,7 +108,8 @@ foreach($item in $data){
                 $updateFieldResponse = & "$scriptsPath\jiraApiFunctions.ps1" 'updateIssue' $content.issues.key $env
                 logThis("Updated custom field change for Jira issue {0} with field {1}" -f $content.issues.key,$fieldName)
                 failLogThis("Updated custom field change for Jira issue {0} with field {1}. Please run again and confirm the update is cleared" -f $content.issues.key,$fieldName)
-            }else{
+            }
+            else{
                 if($comparisonResult.StartsWith('~')){
                     $comparisonResult = $comparisonResult.Replace('~','')
                 }
@@ -101,10 +121,11 @@ foreach($item in $data){
                 logThis("Updated custom field change for Jira issue {0} with field {1}" -f $content.issues.key,$fieldName)
                 failLogThis("Updated custom field change for Jira issue {0} with field {1}. Please run again and confirm the update is cleared" -f $content.issues.key,$fieldName)
             }
-        }elseif($totalItemsFound -gt 1){
+        }
+        elseif($totalItemsFound -gt 1){
             logThis("Found MSP item {0} more than once in Jira" -f $item.id)
             failLogThis("Found MSP item {0} more than once in Jira" -f $item.id)
-        }    
+        }
         #7 ##### if not exists ######
         #---------------------------#    
         #elseif($httpResponse.Contains('(400) Bad Request')){
@@ -134,7 +155,8 @@ foreach($item in $data){
                     [string] $jiraKey = ($createHttpResponse.Content | ConvertFrom-Json).key
                     Update-Status $item.Status $jiraKey
                 }
-            }else{
+            }
+            else{
                 logThis("error creating Jira for msp item with id: {0}" -f $mspId)
                 failLogThis("error creating Jira for msp item with id: {0}. Please check all values are valid before turning to your Admin" -f $mspId)
             }
@@ -144,8 +166,41 @@ foreach($item in $data){
         }
     }
 }
+#13 ##### monitor multiple runs ######
+#------------------------------------#
+#14 ##### check faillog is not empty ######
+#-----------------------------------------#
+if((Test-Path -Path "$scriptsPath\failLog.txt") -and (Get-Content -Path "$scriptsPath\failLog.txt") -ne ""){
+    #16 ##### if not exists then create and rerun ######
+    #--------------------------------------------------#
+    if(!(Test-Path -Path "$scriptsPath\secondaryFailLog.txt")){
+        # create
+        Copy-Item -Path "$scriptsPath\failLog.txt" -Destination "$scriptsPath\secondaryFailLog.txt"
+        # rerun
+        #& "$scriptsPath\runAs.ps1"
+        $repeat = $true
+    }
+    #17 ##### if exists then compare current to secondry ######
+    #---------------------------------------------------------#
+    else{
+        #18 ##### if match then notify user ######
+        #----------------------------------------#
+        if(Compare-Logs){
+            #notify user
+            failLogThis("the errors above cannot be cleared. Please notify the admin")
+        }
+        #19 ##### if mismatch then rerun ######
+        #----------------------------------------#
+        else{
+            Remove-Item "$scriptsPath\secondaryFailLog.txt"
+            $repeat = $true
+        }
+    }
+}
+}
+while($repeat)
 
-
+#0 ##### clear previous logs
 #1 ##### pull from MSP DB ------------------------------ DONE
 #2 ##### get the msp object ID ------------------------------ DONE
 #3 ##### search for it in all the Jira MSP objects ------------------------------ DONE
@@ -161,6 +216,13 @@ foreach($item in $data){
     #10 ##### decide on failure ------------------------------ DONE
     #11 ##### check if status ne תכנון ------------------------------ DONE
         #12 ##### update status ------------------------------ DONE
+#13 ##### monitor multiple runs
+    #14 ##### check faillog is not empty:
+        #15 ##### check secondary faillog exists
+            #16 ##### if not exists then create and rerun
+            #17 ##### if exists then compare current to secondry
+                #18 if match then notify user
+                #19 if mismatch then rerun
 #15 ###### create general scheduler for this task
 
-# trans: http://[server:port]/rest/api/2/issue/[issueId]/transitions?expand=transitions.fields
+# trans: http://alm-tstappjir01:8080/rest/api/2/issue/CALPROJ-33/transitions?expand=transitions.fields
