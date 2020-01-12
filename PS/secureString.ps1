@@ -9,3 +9,7 @@ Read-Host -AsSecureString | ConvertFrom-SecureString -Key (1..16) | Out-File $fi
 
 #PScredential object
 [pscredential] $ServiceAccountCreds = new-object -TypeName pscredential($username,$securePassword)
+#or new-object -typename System.Management.Automation.PSCredential -argumentlist $username,$securePassword
+
+#discover password
+[String] $password = $ServiceAccountCreds.GetNetworkCredential().Password
