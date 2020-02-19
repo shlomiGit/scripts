@@ -1,8 +1,8 @@
-params(
+param(
 [Parameter(Mandatory=$true)]
-[string] $url
-[string] $userName
-[secureString] $pwd
+[string] $url,
+[string] $userName,
+[secureString] $pwd,
 [string] $method
 )
 
