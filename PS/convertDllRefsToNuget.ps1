@@ -12,8 +12,7 @@ param(
     ####### nuget details
     [string[]] $sources = @('ExternalPackages','MarketPackages'),
     $packageProvider = 'NuGet',
-    $nugetPath = "C:\Users\shlomiz\source\ConvertingToDependencyManaged\apps\nuget.exe",
-    $tempRefName = 'LandaFramework.Logger'
+    $nugetPath = "C:\Users\shlomiz\source\ConvertingToDependencyManaged\apps\nuget.exe"
 )
 [string[]] $nugetRefs = New-Object -TypeName 'System.Collections.Generic.HashSet[string]'
  $nugetRefs += foreach ($source in $sources){ & $nugetPath list -source $source}
@@ -29,7 +28,7 @@ function logThis([string] $message){
 <#--------------------------------#>
 Remove-Item -Path $logPath
 logThis("scanning $slnName for projects")
-[PSObject[]] $projectsList = & $PSScriptRoot\1-getSlnProjects.ps1 $pathToSln $slnName
+[PSObject[]] $projectsList = & $PSScriptRoot\getSlnProjects.ps1 $pathToSln $slnName
 logThis("found " + $projectsList.Count + " projects")
 
 ####### 2. loop projects #######
