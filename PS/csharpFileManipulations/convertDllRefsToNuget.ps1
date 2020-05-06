@@ -5,12 +5,12 @@ param(
     $logPath = "$PSScriptRoot\logs\log.txt",
 
     ####### sln details
-    [string] $pathToSln = 'C:\Users\shlomiz\source\repos\Spitfire\Branches\Nuget4Dev', #'C:\Users\shlomiz\source\repos\Spitfire\InfrastructureNugetDev', #
-    [string[]] $slnNames = @('PCCQCS.sln','IntegrationTests.sln','ApplicationInsightsDispatcher.sln','SMFMonitor.sln','CommonInfrastructure.sln','Server.sln','OCController.sln','DPControllerCommon.sln','DPController.sln','QTController.sln','Client.sln','PressDataCollector.sln','DFEMock.sln','LandaTools.sln','MigrationWizard.sln'), #@('LandaInfrastructure.sln'), #
+    [string] $pathToSln = 'C:\Users\shlomiz\source\repos\hhhhhhhh', #'C:\Users\shlomiz\source\repos\Spitfire\InfrastructureNugetDev', #
+    [string[]] $slnNames = @('PCCQCS.sln','IntegrationTests.sln','ApplicationInsightsDispatcher.sln','SMFMonitor.sln','CommonInfrastructure.sln','Server.sln','OCController.sln','DPControllerCommon.sln','DPController.sln','QTController.sln','Client.sln','PressDataCollector.sln','DFEMock.sln','MigrationWizard.sln'),
     [string] $tfPath = 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\TF.exe',
 
     ####### nuget details
-    [string[]] $sources = @('ExternalPackages'), #,'LandaProductPackages'),
+    [string[]] $sources = @('ExternalPackages'), #,'hhhhhhh'),
     $packageProvider = 'NuGet',
     $nugetPath = "C:\Users\shlomiz\source\ConvertingToDependencyManaged\apps\nuget.exe"
 )
