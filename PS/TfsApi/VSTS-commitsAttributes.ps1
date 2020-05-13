@@ -1,10 +1,10 @@
 ###### get commits with comment=increase version and Author=Elimelech
 #uri
-$author = 'Elimelech'
-[uri] $uri = "https://dev.azure.com/servotronix/servotronix/_apis/git/repositories/Maxx_Firmware/commits?searchCriteria.author=$author&api-version=4.1"
+$author = '???????????'
+[uri] $uri = "https://dev.azure.com/???????????/??????????/_apis/git/repositories/Maxx_Firmware/commits?searchCriteria.author=$author&api-version=4.1"
  
 #headers
-$basicAuth = ("{0}:{1}" -f "eli.elimelech@servotronix.com","Amit1409$")
+$basicAuth = ("{0}:{1}" -f "????????????????????","?????????????????")
 $basicAuth = [System.Text.Encoding]::UTF8.GetBytes($basicAuth)
 $basicAuth = [System.Convert]::ToBase64String($basicAuth)
 $headers = @{Authorization=("Basic {0}" -f $basicAuth)}
@@ -16,8 +16,8 @@ $prevLastCommit = ($jsonResponse.value | Where {$_.comment -eq "increase version
 $lastCommitId = $prevLastCommit.commitId
 ###### get commits between last increase version and current
 #uri
-[string] $repo = 'Maxx_Firmware'
-[uri] $uri = "https://dev.azure.com/servotronix/servotronix/_apis/git/repositories/$repo/commits?api-version=4.1"
+[string] $repo = '??????????????????????'
+[uri] $uri = "https://dev.azure.com/??????????????/???????????????/_apis/git/repositories/$repo/commits?api-version=4.1"
 #Invoke-RestMethod -Uri $uri -UseDefaultCredentials -Method Get
 $jsonResponse = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
 #index of last commit
