@@ -16,6 +16,11 @@ param(
 )
 [string[]] $nugetRefs = New-Object -TypeName 'System.Collections.Generic.HashSet[string]'
 $nugetRefs += foreach ($source in $sources){ & $nugetPath list -source $source}
+    
+####### 2b1. remove version from name #######
+<#-----------------------------------------#>
+[string[]] $nugetRefsNames = New-Object -TypeName 'System.Collections.Generic.HashSet[string]'
+$nugetRefsNames += foreach($name in $nugetRefs){($name.Split(' '))[0]}
 
 ####### 0. functions #######
 <#------------------------#>
@@ -62,13 +67,8 @@ logThis("found " + $projectsList.Count + " projects")
             $refsList.Remove($systemRef)
         }
         logThis("found " + $refsList.Count + " refs")
-    
-        ####### 2b1. remove version from name #######
-        <#-----------------------------------------#>
-        [string[]] $nugetRefsNames = New-Object -TypeName 'System.Collections.Generic.HashSet[string]'
-        $nugetRefsNames += foreach($name in $nugetRefs){($name.Split(' '))[0]}
 
-        ####### 2b2. work only on csproj that have nuget refs #######
+        ####### 2b1. work only on csproj that have nuget refs #######
         <#---------------------------------------------------------#>
 
         if((Check-ShouldConvert)){
