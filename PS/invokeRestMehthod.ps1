@@ -22,5 +22,9 @@ $headersObj.Add("X-Atlassian-Token","nocheck")
 [pscredential] $creds = New-Object pscredential($userName, $pwd)
 
 ###invoke
-#$jsonResponse = Invoke-RestMethod -Uri $uri -UseDefaultCredentials -Method $method
-$jsonResponse = Invoke-RestMethod -Uri $uri -Headers $headers -Method $method
+try{
+  #$jsonResponse = Invoke-RestMethod -Uri $uri -UseDefaultCredentials -Method $method
+  $jsonResponse = Invoke-RestMethod -Uri $uri -Headers $headers -Method $method -OutFile [path] -PassThru
+}catch{
+  Out-File -FilePath "$PSScriptRoot\logs\jsonError.json" -InputObject $_.Exception.Response
+}
