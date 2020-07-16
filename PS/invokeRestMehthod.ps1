@@ -8,10 +8,10 @@ param(
 
 ###headers
 # AzureDevops enables PAT, which allows $userName="" and $pwd=pat
-$basicAuth = ("{0}:{1}" -f $userName,$pwd)
-$basicAuth = [System.Text.Encoding]::UTF8.GetBytes($basicAuth)
-$basicAuth = [System.Convert]::ToBase64String($basicAuth)
-$headers = @{Authorization=("Basic {0}" -f $basicAuth)}
+[string] $basicAuth = ("{0}:{1}" -f $userName,$pwd)
+[byte[]] $basicAuthBytes = [System.Text.Encoding]::UTF8.GetBytes($basicAuth)
+[string] $basicAuth64String = [System.Convert]::ToBase64String($basicAuthBytes)
+$headers = @{Authorization=("Basic {0}" -f $basicAuth64String)}
 
 ######### headers object #########
 $headersObj = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
