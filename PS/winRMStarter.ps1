@@ -3,6 +3,7 @@
 [string] $targetIp
 [string] $userName
 [SecureString] $securePassword = Read-Host -AsSecureString
+#or [SecureString] $securePassword = ConvertTo-SecureString -Force -AsPlainText -String 'pswdStringHere'
 
 ### enable winRM on target machine
 #Enable-PSRemoting
