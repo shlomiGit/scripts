@@ -6,6 +6,7 @@ Param(
 if ($filePath -and (Test-Path $filePath)) {
 	$fileContent = Get-Content $filePath
 	$regex = 'Version [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'
+	# can also work: $regex = '\d+\.\d+\.\d+\.\d+'
 	$versionString = select-string -Path $filePath -Pattern $regex -AllMatches | % { $_.Matches } | % { $_.Value }
 	if ($versionString) {
     	$versionArray = $versionString.Split('.')
